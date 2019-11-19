@@ -20,6 +20,7 @@ def main():
     print(np.size(emg1, 0))
     pemg1 = process(emg1)
     print(pemg1)
+    sample_gen(pemg1, 1)
 
 
 def process(data):
@@ -43,26 +44,32 @@ def process(data):
     return table
 
 
-def sample_gen(data):
+def sample_gen(data, fnum):
     """
     This function will write files based on the set label, after eliminating unmarked data (Class 0)
     :param data: The data set processed using the process function above, this will allow us to parse the dataset to
                  what it needs to be to export and be used in the model.
+    :param fnum: This will define what the origin file of each sample, ordered from top to bottom from the Data Folder
     :return: This function does not have a return, as it saves files to a local directory instead.
     """
-    for i in range(0, data[np.size(data, 0), 10]):
+    maxindex = np.size(data, 0) - 1
+    k = 0  # Used in File Naming, to enumerate the gestures of a particular file
+    for i in range(0, int(data[maxindex, 10])):
+        table = []
         print("Creating File for Gesture:", i)
         for j in range(0, np.size(data, 0)):
-            if data[j, 10] != 0:
+            if data[j, 9] != 0:
                 if data[j, 10] == data[j-1, 10]:
-                    table[i, :] = data[i, :]
-        # INSERT THE SAVING AND NAMING FUNCTION HERE
+                    table = np.append([table, data[j, 10]], 0)
+        print(table)
+        if np.size(table) > 0:
+            print("Saving file at: emg_gest_", fnum, "_", k)
+            np.savetxt('PData/emg_gest_{}_{}.txt'.format(fnum, k), table, delimiter='\t', newline=os.linesep)
+        k = k+1
 
         # Then save the table as an iterative name before moving on.
     return
 
-# I need to write up a script that creates a new "small" table after the class changes and write the ones that are
-# Non-zero into individual text files.
-#Would it b easier to just mark it in another column? Probably.
+
 if __name__ == '__main__':
     main()
