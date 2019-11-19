@@ -8,6 +8,7 @@
 
 import pandas as pd
 import numpy as np
+import glob
 import os
 
 #print(os.listdir('data/'))
@@ -15,12 +16,21 @@ import os
 
 def main():
     # To do, make it so that this program processes all 72 datasets.
-    emg1 = pd.read_csv("data/1_raw_data_13-12_22.03.16.txt", header=0, sep='\t')
-    print(emg1.head())
-    print(np.size(emg1, 0))
-    pemg1 = process(emg1)
-    print(pemg1)
-    sample_gen(pemg1, 1)
+    files_path = 'Data/'
+    read_files = glob.glob(os.path.join(files_path, "*.txt"))
+    i = 0
+    # Initialize empty arrays to take on samples
+    for file in read_files:
+        emg_data = pd.read_csv(file, header=0, sep='\t')
+        print(emg_data.head())
+        pemg = process(emg_data)
+        print(pemg)
+        sample_gen(pemg, i)
+        i = i + 1
+    #emg1 = pd.read_csv("data/1_raw_data_13-12_22.03.16.txt", header=0, sep='\t')
+    #print(emg1.head())
+    #emg1 = emg1.to_numpy()
+    #print(emg1[1, :])
 
 
 def process(data):
@@ -55,19 +65,20 @@ def sample_gen(data, fnum):
     maxindex = np.size(data, 0) - 1
     k = 0  # Used in File Naming, to enumerate the gestures of a particular file
     for i in range(0, int(data[maxindex, 10])):
+        print("Creating file for Sample ", fnum, "Number ", k)
         table = []
-        print("Creating File for Gesture:", i)
+        count = 0
         for j in range(0, np.size(data, 0)):
-            if data[j, 9] != 0:
-                if data[j, 10] == data[j-1, 10]:
-                    table = np.append([table, data[j, 10]], 0)
-        print(table)
-        if np.size(table) > 0:
-            print("Saving file at: emg_gest_", fnum, "_", k)
-            np.savetxt('PData/emg_gest_{}_{}.txt'.format(fnum, k), table, delimiter='\t', newline=os.linesep)
+            if count == 0:
+                if data[j, 9] != 0:
+                    table = np.append(table, data[j, :])
+                    count = count + 1
+            elif data[j, 10] == data[j-1, 10]:
+                table = np.append(table, data[j, :])
+            else:
+                break
+        np.savetxt("PData/emg_sample_%d_%d.txt" % (fnum, k), table, delimiter='\t')
         k = k+1
-
-        # Then save the table as an iterative name before moving on.
     return
 
 
