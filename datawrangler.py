@@ -20,6 +20,7 @@ def main():
     read_files = glob.glob(os.path.join(files_path, "*.txt"))
     i = 0
     # Initialize empty arrays to take on samples
+
     for file in read_files:
         emg_data = pd.read_csv(file, header=0, sep='\t')
         print(emg_data.head())
@@ -40,7 +41,7 @@ def process(data):
     :return: table - The table with each gesture individually labeled.
     """
     tdata = data
-    table = np.c_[tdata, np.zeros(np.size(tdata, 0))]
+    table = np.c_[tdata, (np.zeros(np.size(tdata, 0)))]
     print(table)
     j = 0
     for i in range(0, np.size(table, 0)):
@@ -53,7 +54,6 @@ def process(data):
             table[i, 10] = j
     return table
 
-
 def sample_gen(data, fnum):
     """
     This function will write files based on the set label, after eliminating unmarked data (Class 0)
@@ -65,20 +65,23 @@ def sample_gen(data, fnum):
     maxindex = np.size(data, 0) - 1
     k = 0  # Used in File Naming, to enumerate the gestures of a particular file
     for i in range(0, int(data[maxindex, 10])):
-        print("Creating file for Sample ", fnum, "Number ", k)
         table = []
         count = 0
         for j in range(0, np.size(data, 0)):
             if count == 0:
-                if data[j, 9] != 0:
-                    table = np.append(table, data[j, :])
+                if data[j, 9] != 0 and data[j, 10] == i:
+                    table = np.r_[table, data[j, :]]
                     count = count + 1
-            elif data[j, 10] == data[j-1, 10]:
-                table = np.append(table, data[j, :])
+            elif data[j, 9] != 0 and data[j, 10] == data[j-1, 10]:
+                table = np.c_[table, data[j, :]]
             else:
                 break
-        np.savetxt("PData/emg_sample_%d_%d.txt" % (fnum, k), table, delimiter='\t')
-        k = k+1
+        if np.size(table, 0) != 0:
+            print("Creating file for Sample ", fnum, "Number ", k)
+            print(table)
+            table = np.transpose(table)
+            np.savetxt("PData/emg_sample_%d_%d.csv" % (fnum, k), table, delimiter=',')
+            k = k+1
     return
 
 
