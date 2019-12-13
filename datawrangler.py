@@ -95,7 +95,7 @@ def sample_gen(data, fnum):
         if np.size(table, 0) != 0:
             print("Creating file for Sample ", fnum, "Number ", k)
             #print(table)
-            table = table[1:9, :]
+            table = table[1:10, :]
             table = np.transpose(table)
             np.savetxt("PData/emg_sample_%d_%d.csv" % (fnum, k), table, delimiter=',')
             k = k+1
