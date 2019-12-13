@@ -15,47 +15,77 @@ import pandas as pd
 import glob
 import os
 
-# Import a list of file names to split up to form the dataset
-files_path = 'PData/'
-dataset = [None]*872
-fnames = glob.glob(os.path.join(files_path, 'emg_sample_*.csv'))
-i = 0
-# Create a data structures to separate instances into numpy arrays to put into the model
-for names in fnames:
-    dataset[i] = np.loadtxt(names, delimiter=',')
-# Load in labels vector
-flabels = np.loadtxt('PData/emg_labels.csv', delimiter=',')
-##
-# Create a loop with sequentially named datasets to set up testing and traning filenames
-# Need to parse it down using the data.shape file, and set the data to data[:, 1:9]
-# Set Labels to add data[0, 10], to a list for use as labels.
-#print('Creating Test and Training Data sets')
-train, test, train_l, test_l = train_test_split(dataset, flabels, test_size=0.25, random_state=1)
-#print(np.size(train))
-#print(np.size(test))
-##
+
+def main():
+    list_emg = tf.data.Dataset.list_files('PData/emg_sample_*.csv')
+    train_size = int(0.75*872)
+    list_emg = list_emg.shuffle(872)  # Shuffles data taking the whole dataset into account.
+    train = list_emg.take(train_size)
+    test = list_emg.skip(train_size)
+    for f in train.take(1):
+        print(f.numpy())
+        # print(tf.io.read_file(f))
+    labeled_tds = train.map(process_data)
+    labeled_test = test.map(process_data)
+    model = gen_model()
+    model.compile(optimizer=tf.keras.optimizers.Adam(1e-4),
+                  loss='sparse_categorical_crossentropy',
+                  metrics=['accuracy'])
+    history = model.fit(labeled_tds, epochs=10,
+                        validation_data=labeled_test,
+                        validation_steps=30)
+    test_loss, test_acc = model.evaluate(labeled_test)
+    print('Test Loss: {}'.format(test_loss))
+    print('Test Accuracy: {}'.format(test_acc))
+
+    # Insert Plotting functions here
 
 # Start to set up the data for the sets
 # Need to find a way to run the data for the model by reading the csv, and identifying the labels from it.
 # Resource: https://datascience.stackexchange.com/questions/51249/training-keras-model-with-multiple-csv-files
 # LSTM Start
-model = tf.keras.Sequential([
-    tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(16)), # Will play around with more hyperparameters here.
-    tf.keras.layers.Dense(32, activation='relu'),
-    tf.keras.layers.Dense(16, activation='relu'),
-    tf.keras.layers.Dense(7, activation='softmax')
-])
-
-model.compile(optimizer=tf.keras.optimizers.Adam(1e-4),
-                  loss='sparse_categorical_crossentropy',
-                  metrics=['accuracy'])
-history = model.fit(train, epochs=10,
-                    validation_data=test,
-                    validation_steps=30)
-test_loss, test_acc = model.evaluate(test)
-print('Test Loss: {}'.format(test_loss))
-print('Test Accuracy: {}'.format(test_acc))
-
-# Insert Plotting functions here
 
 
+def gen_model():
+    """
+    Creates the basic architecture for the LSTM
+    :return: model, the initialized model for the LSTM RNN
+    """
+    print('Initializing Model...')
+    model = tf.keras.Sequential([
+        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(16)), # Will play around with more hyperparameters here.
+        tf.keras.layers.Dense(16, activation='relu'),
+        tf.keras.layers.Dense(8, activation='relu'),
+        tf.keras.layers.Dense(7, activation='softmax')
+    ])
+    return model
+
+
+def process_data(file_path, test):
+    """
+    This processes the data to enter a tensorflow dataset. It sets the label to the 9th column,
+    which indicates the gesture. The rest is put into the data section as a numpy array to be fed to the network.
+    :param file_path: The files with which the
+    :param: test: Boolean, shows if data set size is the test or training sets.
+    :return:
+    """
+    if test == True:
+        size = 654
+    else:
+        size = 218
+    # This might need a for loop to run through each file and return it to the map file?
+    data_all = np.zeros(size)
+    label_all = np.zeros(size)
+    i = 0
+    for f in file_path:
+        file = np.loadtxt(f.numpy(), delimiter=',')
+        data = file[0:8, :]  # Should input all 8 columns of data needed
+        data_all[i] = data
+        label = file[1, 8]
+        label_all[i]= label
+        i = i+1
+    return data_all, label_all
+
+
+if __name__ == '__main__':
+    main()
