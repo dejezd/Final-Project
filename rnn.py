@@ -30,18 +30,18 @@ def main():
     files_name = 'PData/'
     fnames = glob.glob(os.path.join(files_name, 'emg_sample_*.csv'))
     train_set, test_set = train_test_split(fnames, test_size=0.25, random_state=1)
-    train = tf.data.Dataset.from_tensor_slices(train_set)
-    test = tf.data.Dataset.from_tensor_slices(test_set)
-    labeled_tds = train.map(process_data(train_set, True))
-    labeled_test = test.map(process_data(test_set, False))
+    #train = tf.data.Dataset.from_tensor_slices(train_set)
+    #test = tf.data.Dataset.from_tensor_slices(test_set)
+    labeled_tds, labels_train = process_data(train_set, True)
+    labeled_test, labels_test = process_data(test_set, False)
     model = gen_model()
     model.compile(optimizer=tf.keras.optimizers.Adam(1e-4),
                   loss='sparse_categorical_crossentropy',
                   metrics=['accuracy'])
-    history = model.fit(labeled_tds, epochs=10,
-                        validation_data=labeled_test,
+    history = model.fit(labeled_tds, labels_train, epochs=10,
+                        validation_data=(labeled_test, labels_test),
                         validation_steps=30)
-    test_loss, test_acc = model.evaluate(labeled_test)
+    test_loss, test_acc = model.evaluate(labeled_test, labels_test)
     print('Test Loss: {}'.format(test_loss))
     print('Test Accuracy: {}'.format(test_acc))
 
@@ -60,9 +60,9 @@ def gen_model():
     """
     print('Initializing Model...')
     model = tf.keras.Sequential([
-        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(16)),  # Will play around with more hyperparameters here.
-        tf.keras.layers.Dense(16, activation='relu'),
-        tf.keras.layers.Dense(8, activation='relu'),
+        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64)),  # Will play around with more hyperparameters here.
+        tf.keras.layers.Dense(64, activation='relu'),
+        tf.keras.layers.Dense(32, activation='relu'),
         tf.keras.layers.Dense(7, activation='softmax')
     ])
     return model
@@ -92,6 +92,8 @@ def process_data(file_path, train):
         label_all[i] = label
         i = i+1
     data_all = np.asarray(data_all)
+    print('Dataset: ', data_all)
+    print('Labels: ', label_all)
     return data_all, label_all
 
 
