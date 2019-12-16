@@ -12,41 +12,59 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.model_selection import train_test_split
 import pandas as pd
+from keras.preprocessing import sequence
 import glob
 import os
 
 
 def main():
-    #list_emg = tf.data.Dataset.list_files('PData/emg_sample_*.csv')
-    #train_size = int(0.75*872)
-    #list_emg = list_emg.shuffle(872)  # Shuffles data taking the whole dataset into account.
-    #train = list_emg.take(train_size)
-    #test = list_emg.skip(train_size)
-    #for f in train.take(1):
-     #   print(f.numpy())
-        # print(tf.io.read_file(f))
-    #labeled_tds = train.map(process_data(train, True))
-    #labeled_test = test.map(process_data(test, False))
     files_name = 'PData/'
+    print('Collecting Data...')
     fnames = glob.glob(os.path.join(files_name, 'emg_sample_*.csv'))
+    print('Setting Testing and Training Datasets...')
     train_set, test_set = train_test_split(fnames, test_size=0.25, random_state=1)
-    #train = tf.data.Dataset.from_tensor_slices(train_set)
-    #test = tf.data.Dataset.from_tensor_slices(test_set)
-    labeled_tds, labels_train = process_data(train_set, True)
-    labeled_test, labels_test = process_data(test_set, False)
+    print('Processing Training Dataset...')
+    labeled_tds, labels_train, maxentry_trn = process_data(train_set, True)
+    print('Processing Testing Dataset...')
+    labeled_test, labels_test, maxentry_tst = process_data(test_set, False)
+    if maxentry_trn > maxentry_tst:
+        maxent = maxentry_trn
+    else:
+        maxent = maxentry_tst
+
+    labeled_tds = sequence.pad_sequences(labeled_tds, maxlen=maxent, dtype='float32', padding='post')
+    labeled_test = sequence.pad_sequences(labeled_test, maxlen=maxent, dtype='float32', padding='post')
+
     model = gen_model()
-    model.compile(optimizer=tf.keras.optimizers.Adam(1e-4),
+
+    model.compile(optimizer=tf.keras.optimizers.Adamax(0.01),
                   loss='sparse_categorical_crossentropy',
                   metrics=['accuracy'])
+
     history = model.fit(labeled_tds, labels_train, epochs=10,
                         validation_data=(labeled_test, labels_test),
                         validation_steps=30)
+
     test_loss, test_acc = model.evaluate(labeled_test, labels_test)
+
     print('Test Loss: {}'.format(test_loss))
     print('Test Accuracy: {}'.format(test_acc))
 
     # Insert Plotting functions here
-
+    plt.subplot(121)
+    plt.plot(history.history['accuracy'], label='accuracy')
+    plt.plot(history.history['val_accuracy'], label='val_accuracy')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.ylim([0, 0.75])
+    plt.legend(loc='lower right')
+    plt.subplot(122)
+    plt.plot(history.history['loss'], label='loss')
+    plt.plot(history.history['val_loss'], label='val_loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend(loc='lower right')
+    plt.show()
 # Start to set up the data for the sets
 # Need to find a way to run the data for the model by reading the csv, and identifying the labels from it.
 # Resource: https://datascience.stackexchange.com/questions/51249/training-keras-model-with-multiple-csv-files
@@ -60,9 +78,11 @@ def gen_model():
     """
     print('Initializing Model...')
     model = tf.keras.Sequential([
-        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64)),  # Will play around with more hyperparameters here.
-        tf.keras.layers.Dense(64, activation='relu'),
+        tf.keras.layers.LSTM(32), # Will play around with more hyperparameters here.
+        #tf.keras.layers.Dropout(0.1),
         tf.keras.layers.Dense(32, activation='relu'),
+        #tf.keras.layers.Dropout(0.1),
+        tf.keras.layers.Dense(16, activation='relu'),
         tf.keras.layers.Dense(7, activation='softmax')
     ])
     return model
@@ -83,18 +103,22 @@ def process_data(file_path, train):
     # This might need a for loop to run through each file and return it to the map file?
     data_all = [None]*size
     label_all = np.zeros(size)
+    maxentry = 0
     i = 0
     for f in file_path:
         file = np.loadtxt(f, delimiter=',')
-        data = file[0:8, :]  # Should input all 8 columns of data needed
+        data = file[:, 0:8]  # Should input all 8 columns of data needed
         data_all[i] = data
-        label = file[1, 8]
+        if np.size(data, 0) > maxentry:
+            maxentry = np.size(data, 0)
+        label = file[1, 8] - 1
         label_all[i] = label
         i = i+1
     data_all = np.asarray(data_all)
-    print('Dataset: ', data_all)
-    print('Labels: ', label_all)
-    return data_all, label_all
+    #print('Dataset: ', data_all)
+    #print('Labels: ', label_all)
+    print(maxentry)
+    return data_all, label_all, maxentry
 
 
 if __name__ == '__main__':
