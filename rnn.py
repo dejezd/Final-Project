@@ -37,13 +37,13 @@ def main():
 
     model = gen_model()
 
-    model.compile(optimizer=tf.keras.optimizers.Adamax(0.01),
+    model.compile(optimizer=tf.keras.optimizers.Adamax(0.00025),
                   loss='sparse_categorical_crossentropy',
                   metrics=['accuracy'])
 
-    history = model.fit(labeled_tds, labels_train, epochs=10,
-                        validation_data=(labeled_test, labels_test),
-                        validation_steps=30)
+    history = model.fit(labeled_tds, labels_train, epochs=25,
+                        validation_data=(labeled_test, labels_test))
+    model.save('lstm_model4.h5')
 
     test_loss, test_acc = model.evaluate(labeled_test, labels_test)
 
@@ -78,10 +78,12 @@ def gen_model():
     """
     print('Initializing Model...')
     model = tf.keras.Sequential([
-        tf.keras.layers.LSTM(32), # Will play around with more hyperparameters here.
+        tf.keras.layers.LSTM(64), # Will play around with more hyperparameters here.
         #tf.keras.layers.Dropout(0.1),
+        tf.keras.layers.Dense(64, activation='relu'),
+        tf.keras.layers.Dropout(0.125),
         tf.keras.layers.Dense(32, activation='relu'),
-        #tf.keras.layers.Dropout(0.1),
+        tf.keras.layers.Dropout(0.125),
         tf.keras.layers.Dense(16, activation='relu'),
         tf.keras.layers.Dense(7, activation='softmax')
     ])
